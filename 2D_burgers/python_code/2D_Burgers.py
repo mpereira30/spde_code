@@ -3,18 +3,20 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib import cm
 from mpl_toolkits.mplot3d import Axes3D
+import sys
+import matplotlib.colors as colors
 
 ###variable declarations
 nx = 41
 ny = 41
-nt = 250
+nt = 1000
 c  = 1
 a  = 2
 
 # We have nx number of spatial points in the x - direction. However, the indexing goes from 0 to nx -1 
 dx = a / (nx - 1) # for domain (0,a), delta x = a/nx-1. Therefore, x_n = n * delta_x = n * a /(nx-1), where n = 0, 1, 2, ...., nx -1
 dy = a / (ny - 1)
-sigma = .25
+sigma = .2
 
 nu = 0.1
 dt = sigma * dx * dy / nu
@@ -119,7 +121,8 @@ vmin = np.amin(all_Z)
 
 # print(np.amax(all_us), np.amax(all_vs), np.amin(all_us), np.amin(all_vs))
 
-fig = plt.figure(figsize=(11, 7), dpi=100)
+# fig = plt.figure(figsize=(11, 7), dpi=100)
+# ax = fig.gca(projection='3d')
 
 for n in range(nt):
 	# print(n)
@@ -127,17 +130,22 @@ for n in range(nt):
 	curr_u = all_us[n,:,:]
 	curr_v = all_vs[n,:,:]
 
-	ax = fig.gca(projection='3d')
-	ax.plot_surface(X, Y, curr_u[:], cmap=cm.viridis, rstride=1, cstride=1)
-	ax.plot_surface(X, Y, curr_v[:], cmap=cm.viridis, rstride=1, cstride=1)	
-	ax.set_zlim3d(0.95,2.05)
+	# ax.clear()
+	# ax.plot_surface(X, Y, curr_u[:], cmap=cm.viridis, rstride=1, cstride=1)
+	# ax.plot_surface(X, Y, curr_v[:], cmap=cm.viridis, rstride=1, cstride=1)	
+	# ax.set_zlim3d(0.95,2.05)
 
-
-	# Z = np.sqrt(curr_u**2 + curr_v**2)
+	sys.stdout.write("t: %f/%f \r" %(n*dt,nt*dt))
+	sys.stdout.flush()
+	Z = np.sqrt(curr_u**2 + curr_v**2)
 	# plt.contourf(X, Y, Z, cmap='Blues', vmin=vmin, vmax=vmax)
 	# if n==0:
 	# 	plt.colorbar();
-	# Q = plt.quiver(X,Y,curr_u, curr_v, units='width', color='white')		
+	# Q = plt.quiver(X,Y,curr_u, curr_v, units='xy', angles='xy', scale_units='xy', scale=10, color='black')		
+	Q = plt.quiver(X,Y,curr_u, curr_v, Z, cmap='autumn', clim= [vmin, vmax], units='xy', angles='xy', scale_units='xy', scale=10)
+	if n==0:
+		plt.colorbar(Q,extend='max');		
+
 	plt.pause(0.001)
 
 

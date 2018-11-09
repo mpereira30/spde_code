@@ -4,8 +4,8 @@ clear
 close all
 
 T = 5;
-dt = 0.01;
-a = 1; % a = b case
+dt = 0.0005;
+a = 2; % a = b case
 N = round(T/dt);
 fprintf('Number of timesteps: %d \n', N);
 J = 64;
