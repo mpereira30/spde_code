@@ -1,0 +1,57 @@
+clear 
+clc
+close all
+
+% set parameters:
+T = 5;
+dt = 0.01;
+a = 2; % rod length 
+N = round(T/dt);
+
+% spatial discretization: 
+% j = 0, 1, 2, ......, J for x = 0, ......., a and x_j = j*h = j*(a/J)
+J = 64; % Total number of indices = J+1 to include j=0 
+h = a/J;
+x = (0:h:a)';
+
+% set initial temperature profile:
+u0 = zeros(length(x),1);
+u0(round(0.25 / h):round(0.75 / h),:) = 2.0 ; % using the fact that x_j = j*h, therefore, index j = x_j/h
+u0(round(1.25 / h):round(1.75 / h),:) = -2.0; 
+
+method = 's'; % Different methods are: e (explicit) and s (semi-implicit)
+
+tic
+[t, ut] = pde_fd(u0,T,a,N,J, method);
+toc
+
+figure()
+plot(x,ut(:,1));
+title('start');
+
+figure()
+plot(x, ut(:,round(0.25*length(t))) );
+title('quarter-way');
+
+figure()
+plot(x, ut(:,round(0.5*length(t))) );
+title('mid-way');
+
+figure()
+plot(x,ut(:,end));
+title('end');
+
+% figure()
+% surf(x,t,ut');
+
+% fig = figure();
+% for i = 1:length(t)
+%     plot(x, ut(:,i));
+%     ylim manual
+% %     zlim([0 1e-3])    
+%     ylim([0 init_temp])
+%     set(gcf, 'Units', 'Normalized', 'OuterPosition', [0 0 1 1]);
+%     set(gcf, 'Toolbar', 'none', 'Menu', 'none');
+%     pause(0.01);
+%     clf(fig);
+% end

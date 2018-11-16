@@ -5,15 +5,15 @@
 ...for the second order spatial derivatives
 %%
 %Specifying Parameters
-nx=64;                           %Number of steps in space(x)
-ny=64;                           %Number of steps in space(y)       
+nx=30;                           %Number of steps in space(x)
+ny=30;                           %Number of steps in space(y)       
 nt=200;                           %Number of time steps 
 dt=0.01;                         %Width of each time step
 dx=2/(nx-1);                     %Width of space step(x)
 dy=2/(ny-1);                     %Width of space step(y)
 x=0:dx:2;                        %Range of x(0,2) and specifying the grid points
 y=0:dy:2;                        %Range of y(0,2) and specifying the grid points
-vis=0.01;                        %Diffusion coefficient/viscosity
+vis=0.1;                        %Diffusion coefficient/viscosity
 u=zeros(nx,ny);                  %Preallocating u
 un=zeros(nx,ny);                 %Preallocating un
 v=zeros(nx,ny);                  %Preallocating v

@@ -18,6 +18,7 @@ sigma = 0.2
 # dt = sigma * dx**2 / nu #dt is defined using sigma 
 dt = 0.01
 print("\ntime discretization is:", dt)
+print("end time:", dt*nt)
 
 # Set initial profile:
 # u = np.ones(nx)      
@@ -55,10 +56,8 @@ for i in range(nt):
 
 	plt.cla()
 	ax.plot(np.linspace(0, 2, nx), all_u[i])
-	plt.ylim((-3.5,3.5))
+	plt.ylim((-2.5, 2.5))
 	plt.title('1D Burgers')
-	# ax.text(0.1, 2.0, 't = '+str(i*dt))
-	# ax.text(0.1, 2.1, 'dt = '+str(dt))
 	plt.pause(0.01)
 
 print("Sim complete!")

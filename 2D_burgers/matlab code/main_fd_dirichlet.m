@@ -3,15 +3,17 @@ clc
 clear
 close all
 
-T = 5;
-dt = 0.0005;
+T = 2;
+dt = 0.01;
 a = 2; % a = b case
 N = round(T/dt);
 fprintf('Number of timesteps: %d \n', N);
-J = 64;
+J = 30;
 h = a/J;
 x =(0:h:a)';
 y =(0:h:a)';
+nu = 0.1; % viscosity
+dbcvalue = 0.0; % Dirichlet B.C. value
 
 %  Set initial and desired temperature distributions of rod:
 u_0 = zeros(J-1, J-1);
@@ -27,9 +29,6 @@ for i = 1:length(r_x1)
     u_0(r_y1(i):r_y2(i), r_x1(i):r_x2(i)) = desired_values(i);
 %     v_0(r_y1(i):r_y2(i), r_x1(i):r_x2(i)) = desired_values(i);
 end
-
-nu = 0.1; % viscosity
-dbcvalue = 0.0; % Dirichlet B.C. value
 
 num_diff_scheme = 'c'; % b: backward difference and c: central difference
 
@@ -94,21 +93,21 @@ quiver(X,Y,umat,vmat, 0.5, 'w', 'LineWidth', 0.5);
 hold off;
 title('end');
 
-% fig = figure();
-% for T = 1:N+1
-%     umat = vec2mat(ut(:,T), (J-1))';
-%     umat = padarray(umat, [1 1], dbcvalue, 'both');
-%     vmat = vec2mat(vt(:,T), (J-1))';
-%     vmat = padarray(vmat, [1 1], dbcvalue, 'both');
+fig = figure();
+for T = 1:N+1
+    umat = vec2mat(ut(:,T), (J-1))';
+    umat = padarray(umat, [1 1], dbcvalue, 'both');
+    vmat = vec2mat(vt(:,T), (J-1))';
+    vmat = padarray(vmat, [1 1], dbcvalue, 'both');
 % 	Z = sqrt(umat.^2 + vmat.^2);
 %     contourf(X,Y,Z);
 %     caxis([cmin cmax]);
 %     colorbar;
 %     hold on;
-%     quiver(X,Y,umat,vmat, 0.5, 'w', 'LineWidth', 0.5);
+    quiver(X,Y,umat,vmat, 0.5, 'k', 'LineWidth', 0.5);
 %     hold off;
-%     set(gcf, 'Units', 'Normalized', 'OuterPosition', [0 0 1 1]);
-%     set(gcf, 'Toolbar', 'none', 'Menu', 'none');
-%     pause(0.01);
-%     clf(fig);
-% end
+    set(gcf, 'Units', 'Normalized', 'OuterPosition', [0 0 1 1]);
+    set(gcf, 'Toolbar', 'none', 'Menu', 'none');
+    pause(0.01);
+    clf(fig);
+end
