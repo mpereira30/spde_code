@@ -3,12 +3,11 @@ clc
 close all
 
 % set parameters:
-T       = 2.5; % total sim time in seconds
+T       = 5.0; % total sim time in seconds
 dt      = 0.01; 
 a       = 2; % rod length 
 N       = round(T/dt); % total sim timesteps
 nu      = 0.1; % viscosity of medium 
-dbc_val = 0.0; % velocity at boundaries (for Dirichlet B.C.s) 
 sigma   = 0.05; % space-time noise standard deviation
 
 % spatial discretization: 
@@ -19,17 +18,22 @@ x  = (0:h:a)';
 
 % set initial profile of velocity:
 u0 = zeros(length(x),1);
-u0(round(0.25 / h):round(0.75 / h),1) = 2.0 ; % using the fact that x_j = j*h, therefore, index j = x_j/h
-u0(round(1.25 / h):round(1.75 / h),1) = -2.0; 
+u0(round(0.25 / h):round(0.75 / h),1) = 0.0 ; % using the fact that x_j = j*h, therefore, index j = x_j/h
+u0(round(1.25 / h):round(1.75 / h),1) = 0.0; 
 
 % Pick numerical method and boundary condition:
 method      = 's'; % Different methods are: e (explicit) and s (semi-implicit)
-bctype      = 'd'; % dirichlet - d, periodic - p and neumann - n
 diff_scheme = 'c'; % differentiation scheme for advection: central - c, backward - b
 add_noise   = 0;   % 1 - yes, 0 - no
 
+dbc_val_zero = 1.0; 
+dbc_val_J    = 0.0;
+dbc_val      = [dbc_val_zero, dbc_val_J]; % velocity at boundaries (for Dirichlet B.C.s) ]
+u0(1,1)      = dbc_val_zero; % enforce B.C.s at initial time
+u0(end,1)    = dbc_val_J; % enforce B.C.s at initial time
+
 tic
-ut = pde_fd(u0, dt, h, a, N, J, method, nu, bctype, dbc_val, diff_scheme, add_noise, sigma);
+ut = pde_fd(u0, dt, h, a, N, J, method, nu, dbc_val, diff_scheme, add_noise, sigma);
 toc
 
 figure()

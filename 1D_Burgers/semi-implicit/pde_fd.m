@@ -1,36 +1,28 @@
 
-function [ut] = pde_fd(u0, dt, h, a, N, J, method, nu, bctype, dbc_val, diff_scheme, add_noise, sigma)
+function [ut] = pde_fd(u0, dt, h, a, N, J, method, nu, dbc_val, diff_scheme, add_noise, sigma)
     
     if method == 's' % semi-implicit numerical scheme
 
         % set matrix A according to boundary conditions
-        e = ones(J+1,1); 
-        A = spdiags([-e 2*e -e], -1:1, J+1, J+1);
+        e       = ones(J+1,1); 
+        A       = spdiags([-e 2*e -e], -1:1, J+1, J+1);
+        ind     = 2:J; % Incorporating Dirichlet B.C.s
+        A       = A(ind,ind);
+        EE      = speye(length(ind)) + dt * nu * A/h^2;    
+        
+        root_q  = ones(J-1,1); % eigen values for cylindrical Q-Wiener 
+        bj      = root_q * sqrt(2*dt/a);                  
+        
+        ut        = zeros(J+1, N+1); % Container to store the time evolution of the field
+        ut(1,:)   = dbc_val(1)*ones(1,N+1);
+        ut(end,:) = dbc_val(2)*ones(1,N+1);
+        ut(:,1)   = u0; % overwrite with the initial profile 
+        u_n       = u0(ind); % set profile at nth timestep 
 
-        switch lower(bctype)
-            case {'dirichlet','d'}
-                ind = 2:J; 
-                A = A(ind,ind);
-                root_q = ones(J-1,1); 
-                bj = root_q * sqrt(2*dt/a); % root_q = 1 for cylindrical noise                 
-            case {'periodic','p'}
-                ind = 1:J; 
-                A = A(ind,ind); 
-                A(1,end) = -1; 
-                A(end,1) = -1;
-            case {'neumann','n'}
-                ind = 1:J+1; 
-                A(1,2) = -2; 
-                A(end,end-1) = -2;
-        end
-
-        EE = speye(length(ind)) + dt * nu * A/h^2;
-        % Container to store the time evolution of the field:
-        ut = dbc_val * ones(J+1, N+1); % This takes care of homogeneous Dirichlet B.C.s at indices 1 and (J+1)
-        ut(:,1) = u0; % overwrite with the initial profile 
-
-        u_n = u0(ind); % set profile at nth timestep 
-
+        dbc_vec        = zeros(J-1,1);
+        dbc_vec(1,1)   = dt * nu * dbc_val(1) / h^2;
+        dbc_vec(J-1,1) = dt * nu * dbc_val(2) / h^2;
+        
         for k = 1:N % time loop
             if mod(k,100)==0
                 k
@@ -38,9 +30,9 @@ function [ut] = pde_fd(u0, dt, h, a, N, J, method, nu, bctype, dbc_val, diff_sch
 
             % advection term (non-linearity)
             if diff_scheme == 'c' % Using central difference
-                fn = u_n .* (0.5 * dt / h) .* ( [u_n(2:end,1);dbc_val] - [dbc_val;u_n(1:end-1,1)] ); 
+                fn = u_n .* (0.5 * dt / h) .* ( [u_n(2:end,1);dbc_val(2)] - [dbc_val(1);u_n(1:end-1,1)] ); 
             elseif diff_scheme == 'b' % Using backward difference
-                fn = u_n .* (dt / h) .* ( u_n - [dbc_val; u_n(1:end-1,1)] ); 
+                fn = u_n .* (dt / h) .* ( u_n - [dbc_val(1); u_n(1:end-1,1)] ); 
             end
             
             % Generate space-time white noise:
@@ -52,18 +44,20 @@ function [ut] = pde_fd(u0, dt, h, a, N, J, method, nu, bctype, dbc_val, diff_sch
                 dW = zeros(size(u_n));
             end
             
-            u_new = EE\(u_n -fn + sigma*dW);
+            u_new = EE\(u_n -fn + sigma*dW + dbc_vec);
             ut(ind, k+1) = u_new;
             u_n = u_new;
-        end
-
-        if lower(bctype)=='p' | lower(bctype)=='periodic'
-            ut(end,:) = ut(1,:); % correct for periodic case
         end
         
     elseif method == 'e' % fully explicit numerical scheme
         
-        ut = dbc_val * ones(J+1, N+1); % This takes care of homogeneous Dirichlet B.C.s at indices 1 and (J+1)
+        %%%%%%%%%%%%%%%% CAUTION %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        % THIS IS INCOMPLETE, HAVE TO ACCOUNT FOR NON-ZERO B.Cs IN LAPLACIAN 
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        
+        ut = zeros(J+1, N+1); % This takes care of homogeneous Dirichlet B.C.s at indices 1 and (J+1)
+        ut(1,:) = dbc_val(1)*ones(1,N+1);
+        ut(end,:) = dbc_val(2)*ones(1,N+1);
         ind = 2:J;
         ut(:,1) = u0; % overwrite with the initial profile 
         u_n = u0(ind); % set profile at nth timestep 
