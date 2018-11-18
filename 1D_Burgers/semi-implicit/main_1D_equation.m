@@ -7,27 +7,31 @@ T       = 5.0; % total sim time in seconds
 dt      = 0.01; 
 a       = 2; % rod length 
 N       = round(T/dt); % total sim timesteps
-nu      = 0.1; % viscosity of medium 
+nu      = 0.075; % viscosity of medium 
 sigma   = 0.05; % space-time noise standard deviation
 
 % spatial discretization: 
 % j = 0, 1, 2, ......, J for x = 0, ......., a and x_j = j*h = j*(a/J)
-J  = 64; % Total number of indices = J+1 to include j=0 
+J  = 128; % Total number of indices = J+1 to include j=0 
 h  = a/J; % spatial discretization
 x  = (0:h:a)';
 
 % set initial profile of velocity:
 u0 = zeros(length(x),1);
-u0(round(0.25 / h):round(0.75 / h),1) = 0.0 ; % using the fact that x_j = j*h, therefore, index j = x_j/h
-u0(round(1.25 / h):round(1.75 / h),1) = 0.0; 
+% u0(round(0.25 / h):round(0.75 / h),1) = 2.0 ; % using the fact that x_j = j*h, therefore, index j = x_j/h
+% u0(round(1.25 / h):round(1.75 / h),1) = -2.0; 
+range1 = round(0.2*(J+1)):round(0.4*(J+1));
+range2 = round(0.6*(J+1)):round(0.8*(J+1));
+u0(range1,1) = 2.0;
+u0(range2,1) = -2.0;
 
 % Pick numerical method and boundary condition:
 method      = 's'; % Different methods are: e (explicit) and s (semi-implicit)
 diff_scheme = 'c'; % differentiation scheme for advection: central - c, backward - b
-add_noise   = 0;   % 1 - yes, 0 - no
+add_noise   = 1;   % 1 - yes, 0 - no
 
 dbc_val_zero = 1.0; 
-dbc_val_J    = 0.0;
+dbc_val_J    = -1.0;
 dbc_val      = [dbc_val_zero, dbc_val_J]; % velocity at boundaries (for Dirichlet B.C.s) ]
 u0(1,1)      = dbc_val_zero; % enforce B.C.s at initial time
 u0(end,1)    = dbc_val_J; % enforce B.C.s at initial time

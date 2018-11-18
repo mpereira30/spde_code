@@ -2,77 +2,73 @@ clc
 clear 
 close all
 
-% TODOs :
-% (1.) What happens when sigma changes? Should we instead multiply the Xi directly by sigma instead of multiplying the dW by sigma?
-% (2.) In computation for zeta_1, sqrt(dt) or dt ??
-% (3.) In control update equation, sqrt(dt) or dt ??
+global J N a mu sig T dt sigma h_d rollouts rho scale_factor range nu terminal_only 
 
-global J;
-global N;
-global a;
-global mu;
-global sig;
-global T;
-global dt;
-global sigma;
-global h_d;
-global rollouts;
-global rho;
-global scale_factor;
-global range;
-global epsilon;
-global terminal_only;
+%-------------- Setup simulation parameters -------------------------------
 
-terminal_only = 0; % Set 1 for considering only terminal state cost
+Tf              = 2.0; % final time (in seconds)
+dt              = 0.01;
+T               = round(Tf/dt); % Horizon length or total number of timesteps
+a               = 2; % rod length 
+J               = 128; % number of spatial points
+z               = a/J; % spatial discretization
+x               = (0:z:a)';
+iters           = 100; % number of PI iterations (Open Loop)
+rollouts        = 20; % number of rollouts for sampling 
+rho             = 1000; % Path Integral temperature parameter, High rho => like max fn, Low rho => like averaging the samples
+sigma           = 1/(sqrt(rho)); % standard deviation for Q-Wiener noise
+scale_factor    = 100; % For scaling certain terms in cost function to increase relative importance
+nu              = 0.1; % viscosity of medium
+terminal_only   = 0; % Set 1 for considering only terminal state cost
 
-% Set parameters:
-Tf = 1.0; % final time (in seconds)
-dt = 0.01;
-T = round(Tf/dt); % Horizon length
-a = 2; % rod length 
-J = 128; % number of spatial points
-z = a/J; % spatial discretization
-x = (0:z:a)';
-iters = 1000; % number of PI iterations
-rollouts = 200; % number of rollouts for sampling 
+%------- Set initial and desired velocity profiles ------------------------
 
-rho = 1; % temperature parameter
-sigma = 1/(sqrt(rho)); % standard deviation for Q-Wiener noise
-scale_factor = 100;
-epsilon = 1; % thermal diffusivity of the rod
+desired_vel     = 1.0;
+h0              = zeros(J+1,1);
+h_d             = zeros(J+1,1);
 
-%  Set initial and desired temperature distributions of rod:
-init_temp = 0;
-desired_temp = 5;
+range1          = round(0.18*(J+1)):round(0.22*(J+1));
+% range2        = round(0.48*(J+1)):round(0.52*(J+1));
+% range3        = round(0.78*(J+1)):round(0.82*(J+1));
 
-h_d = zeros(J+1,1);
+h_d(range1,1)   = +desired_vel;
+% h_d(range2,1) = +desired_vel * 0.5;
+% h_d(range3,1) = +desired_vel;
 
-range1 = round(0.18*J):round(0.22*J);
-range2 = round(0.48*J):round(0.52*J);
-range3 = round(0.78*J):round(0.82*J);
-range = [range1, range2, range3];
-h_d(range1,1) = +desired_temp;
-h_d(range2,1) = +desired_temp * 0.5;
-h_d(range3,1) = +desired_temp;
+% range         = [range1, range2, range3];
+range           = [range1];
 
-mu = [0.2 0.5 0.8].*a;
-sig_val = (0.1*a) * ones(length(mu));
-sig = sig_val.^2; % standard deviation of actuation in space
+%----------- Set the Dirichlet B.C. values at each end --------------------
 
-N = length(mu); % number of actuators
+dbc_val_zero = 0.0; % B.C. at start of spatial domain
+dbc_val_J    = 0.0; % B.C. at end of spatial domain
+dbc_val      = [dbc_val_zero, dbc_val_J]; 
+h0(1,1)      = dbc_val_zero; % enforce B.C.s at initial time
+h0(end,1)    = dbc_val_J; % enforce B.C.s at initial time
 
-% Set the initial temperature profile of the rod:
-h0 = zeros(J+1,1);
+%--------------------- Setup actuators ------------------------------------
 
-% Initialize control sequences:
-U = randn(T,N);
+mu           = [0.2 0.5 0.8] .* a; 
+sig_val      = (0.05*a) * ones(length(mu));
+sig          = sig_val.^2; % standard deviation of actuation in space
+N            = length(mu); % number of actuators
 
-% First compute matricies curly-M, M and the curly-v-tilde vector offline:
-curly_M = compute_curly_M();
-M = compute_capital_M();
-curly_v_tilde = compute_curly_v_tilde();
+%---------- Initialize controls and compute offline matrices -------------- 
+
+U               = randn(T,N);
+curly_M         = compute_curly_M();
+M               = compute_capital_M();
+curly_v_tilde   = compute_curly_v_tilde();
 
 cost = zeros(iters,1);
+
+% Local copies of global variables to be used in parfor loop:
+J_     = J;
+a_     = a;
+T_     = T;
+dt_    = dt;
+nu_    = nu;
+sigma_ = sigma;
 
 for iter = 1:iters
 
@@ -80,8 +76,9 @@ for iter = 1:iters
     h_samples = zeros(rollouts,T+1,J+1); % trajectories of spatial points
     xi_samples = zeros(rollouts,T,J-1); % corresponding noise trajectories 
     
-    for r = 1:rollouts
-        [h_traj, xi_traj] = generate_rollouts(h0, U, curly_v_tilde, 0);
+    noise_free = 0; % add noise for exploration
+    parfor r = 1:rollouts
+        [h_traj, xi_traj] = generate_rollouts(h0, U, curly_v_tilde, noise_free, J_, nu_, a_, T_, dbc_val, dt_, sigma_);
         h_samples(r,:,:) = h_traj;
         xi_samples(r,:,:) = xi_traj;
     end
@@ -90,10 +87,11 @@ for iter = 1:iters
     U_new = PI_control(h_samples, xi_samples, U, curly_M, M);
 
     %% Noise-free rollout and noise-free cost computation:
-%     [h_traj, xi_traj] = generate_rollouts(h0, U_new, curly_v_tilde, 1);
+    noise_free = 1;
+    [h_traj, xi_traj] = generate_rollouts(h0, U_new, curly_v_tilde, noise_free, J_, nu_, a_, T_, dbc_val, dt_, sigma_);
     
     % With disturbances in the actual dynamics:
-    [h_traj, xi_traj] = generate_rollouts(h0, U_new, curly_v_tilde, 0);    
+%     [h_traj, xi_traj] = generate_rollouts(h0, U_new, curly_v_tilde, 0);    
     
     if (terminal_only == 0) % consider running cost as well
         for t = 1:T
@@ -109,7 +107,7 @@ end
 
 figure()
 plot(cost)
-
+title('cost vs iterations');
 
 %%
 
@@ -128,36 +126,36 @@ title('mid-way');
 figure()
 plot(x,h_traj(end,:));
 title('end');
-% 
+
+ylim1 = min(min(h_traj));
+ylim2 = max(max(h_traj));
+
 % fig = figure();
-% for i = 1:T
-%     plot(x,h_d, '-r');
-%     hold on;
-%     plot(x,h_traj(i,:), '-b');
+% for i = 1:T+1
+%     i
+%     plot(x, h_traj(i,:));
 %     ylim manual
-% %     zlim([0 1e-3])    
-% %     ylim([-desired_temp*1.25 desired_temp*1.25])
-%     ylim([0 desired_temp*1.25])
+%     ylim([ylim1 ylim2])
 %     set(gcf, 'Units', 'Normalized', 'OuterPosition', [0 0 1 1]);
 %     set(gcf, 'Toolbar', 'none', 'Menu', 'none');
-%     pause(0.03);
+%     pause(0.01);
 %     clf(fig);
 % end
 
-figure()
-surf(x,(1:1:T+1),h_traj)
-
- 
-figure()
-plot(U_new)
-
-mean_h = mean(h_traj, 1);
-var_h = var(h_traj,1); 
-figure()
-plot(x,h_d, '-r');
-hold on; 
-plot(x, mean_h,'-b');
-hold on; 
-plot(x, mean_h + 2.*sqrt(var_h),'--k');
-hold on; 
-plot(x, mean_h - 2.*sqrt(var_h),'--k');
+% figure()
+% surf(x,(1:1:T+1),h_traj)
+% 
+%  
+% figure()
+% plot(U_new)
+% 
+% mean_h = mean(h_traj, 1);
+% var_h = var(h_traj,1); 
+% figure()
+% plot(x,h_d, '-r');
+% hold on; 
+% plot(x, mean_h,'-b');
+% hold on; 
+% plot(x, mean_h + 2.*sqrt(var_h),'--k');
+% hold on; 
+% plot(x, mean_h - 2.*sqrt(var_h),'--k');
