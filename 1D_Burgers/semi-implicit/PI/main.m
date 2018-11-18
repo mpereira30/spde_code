@@ -6,42 +6,43 @@ global J N a mu sig T dt sigma h_d rollouts rho scale_factor range nu terminal_o
 
 %-------------- Setup simulation parameters -------------------------------
 
-Tf              = 2.0; % final time (in seconds)
+Tf              = 1.0; % final time (in seconds)
 dt              = 0.01;
 T               = round(Tf/dt); % Horizon length or total number of timesteps
 a               = 2; % rod length 
 J               = 128; % number of spatial points
 z               = a/J; % spatial discretization
 x               = (0:z:a)';
-iters           = 100; % number of PI iterations (Open Loop)
-rollouts        = 20; % number of rollouts for sampling 
-rho             = 1000; % Path Integral temperature parameter, High rho => like max fn, Low rho => like averaging the samples
+iters           = 200; % number of PI iterations (Open Loop)
+rollouts        = 50; % number of rollouts for sampling 
+rho             = 250; % Path Integral temperature parameter, High rho => like max fn, Low rho => like averaging the samples
 sigma           = 1/(sqrt(rho)); % standard deviation for Q-Wiener noise
 scale_factor    = 100; % For scaling certain terms in cost function to increase relative importance
 nu              = 0.1; % viscosity of medium
 terminal_only   = 0; % Set 1 for considering only terminal state cost
+load_U          = 0; % Set to 1 if you want to load previous optimized control sequence
 
 %------- Set initial and desired velocity profiles ------------------------
 
-desired_vel     = 1.0;
+desired_vel     = 2.0;
 h0              = zeros(J+1,1);
-h_d             = zeros(J+1,1);
+h_d             = NaN(J+1,1);
 
 range1          = round(0.18*(J+1)):round(0.22*(J+1));
-% range2        = round(0.48*(J+1)):round(0.52*(J+1));
-% range3        = round(0.78*(J+1)):round(0.82*(J+1));
+range2          = round(0.48*(J+1)):round(0.52*(J+1));
+% range3          = round(0.78*(J+1)):round(0.82*(J+1));
 
-h_d(range1,1)   = +desired_vel;
-% h_d(range2,1) = +desired_vel * 0.5;
+h_d(range1,1)   = desired_vel;
+h_d(range2,1)   = desired_vel * 0.5;
 % h_d(range3,1) = +desired_vel;
 
 % range         = [range1, range2, range3];
-range           = [range1];
+range           = [range1, range2];
 
 %----------- Set the Dirichlet B.C. values at each end --------------------
 
-dbc_val_zero = 0.0; % B.C. at start of spatial domain
-dbc_val_J    = 0.0; % B.C. at end of spatial domain
+dbc_val_zero = 1.0; % B.C. at start of spatial domain
+dbc_val_J    = 1.0; % B.C. at end of spatial domain
 dbc_val      = [dbc_val_zero, dbc_val_J]; 
 h0(1,1)      = dbc_val_zero; % enforce B.C.s at initial time
 h0(end,1)    = dbc_val_J; % enforce B.C.s at initial time
@@ -55,7 +56,13 @@ N            = length(mu); % number of actuators
 
 %---------- Initialize controls and compute offline matrices -------------- 
 
-U               = randn(T,N);
+if load_U == 1
+    fprintf("Loading previously optimized control sequence\n");
+    load('optimal_controls.mat')
+    U           = U_new;
+else
+    U           = randn(T,N);
+end
 curly_M         = compute_curly_M();
 M               = compute_capital_M();
 curly_v_tilde   = compute_curly_v_tilde();
@@ -105,6 +112,8 @@ for iter = 1:iters
     U = U_new;
 end 
 
+save('optimal_controls.mat', 'U_new');
+
 figure()
 plot(cost)
 title('cost vs iterations');
@@ -113,37 +122,51 @@ title('cost vs iterations');
 
 figure()
 plot(x,h_traj(1,:));
-title('start');
-
-figure()
-plot(x, h_traj(round(0.25*T),:) );
-title('quarter-way');
-
-figure()
-plot(x, h_traj(round(0.5*T),:) );
-title('mid-way');
+hold on 
+plot(x, h_d, '-r', 'LineWidth',5);
+hold off
+legend('actual','desired');
+title('starting profile');
 
 figure()
 plot(x,h_traj(end,:));
-title('end');
+hold on 
+plot(x, h_d, '-r', 'LineWidth',5);
+hold off
+legend('actual','desired');
+title('end profile');
+
+figure()
+s = surf(x,(1:1:T+1),h_traj);
+s.EdgeAlpha = 0.25;
+xlabel('space')
+ylabel('time')
+zlabel('velocity')
 
 ylim1 = min(min(h_traj));
 ylim2 = max(max(h_traj));
 
-% fig = figure();
-% for i = 1:T+1
-%     i
-%     plot(x, h_traj(i,:));
-%     ylim manual
-%     ylim([ylim1 ylim2])
-%     set(gcf, 'Units', 'Normalized', 'OuterPosition', [0 0 1 1]);
-%     set(gcf, 'Toolbar', 'none', 'Menu', 'none');
-%     pause(0.01);
-%     clf(fig);
-% end
+fprintf("\n");
+animate = input('Would you like to watch an animation of the field? Type 1: Yes or 0: No and press Enter !');
 
-% figure()
-% surf(x,(1:1:T+1),h_traj)
+if animate
+    fig = figure();
+    for i = 1:T+1
+        i
+        plot(x, h_traj(i,:));
+        hold on 
+        plot(x, h_d, '-r');
+        hold off
+        legend('actual','desired');
+        ylim manual
+        ylim([ylim1 ylim2])
+        set(gcf, 'Units', 'Normalized', 'OuterPosition', [0 0 1 1]);
+        set(gcf, 'Toolbar', 'none', 'Menu', 'none');
+        pause(0.01);
+        clf(fig);
+    end
+end
+
 % 
 %  
 % figure()

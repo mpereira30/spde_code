@@ -3,21 +3,8 @@
 
 function U_new = PI_control(h_samples, xi_samples, U, curly_M, M)
 
-global J;
-global N;
-global a;
-global mu;
-global sig;
-global T;
-global dt;
-global sigma;
-global h_d;
-global rollouts;
-global rho;
-global scale_factor;
-global range; 
-global terminal_only;
-
+    global J N a mu sig T dt sigma h_d rollouts rho scale_factor range nu terminal_only 
+    
     J_h = zeros(rollouts,1);
     for r = 1:rollouts
         if(terminal_only == 0) % consider running cost as well. 
@@ -25,7 +12,7 @@ global terminal_only;
                 J_h(r,1) = J_h(r,1) + scale_factor * (squeeze(h_samples(r,t,range)) - h_d(range,1))' * (squeeze(h_samples(r,t,range)) - h_d(range,1));
             end
         end        
-        J_h(r,1) = J_h(r,1) + scale_factor * (squeeze(h_samples(r,T+1,range)) - h_d(range,1))' * (squeeze(h_samples(r,T+1,range)) - h_d(range,1));
+        J_h(r,1) = J_h(r,1) + scale_factor * (squeeze(h_samples(r,end,range)) - h_d(range,1))' * (squeeze(h_samples(r,end,range)) - h_d(range,1));
     end
     
     zeta_1 = zeros(rollouts,1);   

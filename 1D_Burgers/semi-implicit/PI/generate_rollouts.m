@@ -30,7 +30,7 @@ function [h_traj, xi_traj] = generate_rollouts(h0, U, curly_v_tilde, noise_free,
     for t = 1:T % time loop
 
         % advection term (non-linearity)
-        fn = h_n .* (0.5 * dt / z) .* ( [h_n(2:end,1);dbc_val(2)] - [dbc_val(1);h_n(1:end-1,1)] ); 
+        fn = h_n .* (0.5 * dt / z) .* ( [h_n(2:end,1);dbc_val(2)] - [dbc_val(1);h_n(1:end-1,1)] ); % using central difference
 
         % Generate space-time white noise:
         if noise_free == 0
