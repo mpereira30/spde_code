@@ -13,13 +13,13 @@ a               = 2; % rod length
 J               = 128; % number of spatial points
 z               = a/J; % spatial discretization
 x               = (0:z:a)';
-iters           = 200; % number of PI iterations (Open Loop)
-rollouts        = 50; % number of rollouts for sampling 
-rho             = 250; % Path Integral temperature parameter, High rho => like max fn, Low rho => like averaging the samples
+iters           = 100; % number of PI iterations (Open Loop)
+rollouts        = 100; % number of rollouts for sampling 
+rho             = 500; % Path Integral temperature parameter, High rho => like max fn, Low rho => like averaging the samples
 sigma           = 1/(sqrt(rho)); % standard deviation for Q-Wiener noise
 scale_factor    = 100; % For scaling certain terms in cost function to increase relative importance
 nu              = 0.1; % viscosity of medium
-terminal_only   = 0; % Set 1 for considering only terminal state cost
+terminal_only   = 1; % Set 1 for considering only terminal state cost
 load_U          = 0; % Set to 1 if you want to load previous optimized control sequence
 
 %------- Set initial and desired velocity profiles ------------------------
@@ -30,14 +30,14 @@ h_d             = NaN(J+1,1);
 
 range1          = round(0.18*(J+1)):round(0.22*(J+1));
 range2          = round(0.48*(J+1)):round(0.52*(J+1));
-% range3          = round(0.78*(J+1)):round(0.82*(J+1));
+range3          = round(0.78*(J+1)):round(0.82*(J+1));
 
 h_d(range1,1)   = desired_vel;
 h_d(range2,1)   = desired_vel * 0.5;
-% h_d(range3,1) = +desired_vel;
+h_d(range3,1)   = +desired_vel;
 
-% range         = [range1, range2, range3];
-range           = [range1, range2];
+range           = [range1, range2, range3];
+% range           = [range1, range2];
 
 %----------- Set the Dirichlet B.C. values at each end --------------------
 
@@ -117,6 +117,9 @@ save('optimal_controls.mat', 'U_new');
 figure()
 plot(cost)
 title('cost vs iterations');
+
+figure()
+plot(U_new)
 
 %%
 
