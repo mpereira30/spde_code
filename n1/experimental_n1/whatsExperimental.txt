@@ -1,0 +1,14 @@
+
+
+1.) In the generate rollouts function, at every timestep, only J-1 values of randn noise are sampled and not J+1.
+
+WRONG: This is because dW at the boundary points are anyways zeros, so why sample J+1 values of noise. 
+CORRECT: This can be done. The number of noise samples does not depend on the number of spatial points. The number of noise samples is same as the number of 
+         eigenfunctions used to approximate the Q-Wiener increments. 
+
+2.) In the compute curly M function, for loop iterates from j = 1:J-1 and not J+1
+
+Same reason here as above, as the index j (has to start at 1 else sin(0) = 0 and that term does not contribute anyways) indicates the number of terms used 
+to approximate the Q-Wiener increments and not the number of spatial points. 
+
+

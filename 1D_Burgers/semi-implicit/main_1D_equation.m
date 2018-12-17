@@ -3,11 +3,11 @@ clc
 close all
 
 % set parameters:
-T       = 5.0; % total sim time in seconds
+T       = 4.0; % total sim time in seconds
 dt      = 0.01; 
 a       = 2; % rod length 
 N       = round(T/dt); % total sim timesteps
-nu      = 0.075; % viscosity of medium 
+nu      = 0.1; % viscosity of medium 
 sigma   = 0.05; % space-time noise standard deviation
 
 % spatial discretization: 
@@ -22,8 +22,8 @@ u0 = zeros(length(x),1);
 % u0(round(1.25 / h):round(1.75 / h),1) = -2.0; 
 range1 = round(0.2*(J+1)):round(0.4*(J+1));
 range2 = round(0.6*(J+1)):round(0.8*(J+1));
-u0(range1,1) = 2.0;
-u0(range2,1) = -2.0;
+u0(range1,1) = 0.0;
+u0(range2,1) = 0.0;
 
 % Pick numerical method and boundary condition:
 method      = 's'; % Different methods are: e (explicit) and s (semi-implicit)
@@ -31,7 +31,7 @@ diff_scheme = 'c'; % differentiation scheme for advection: central - c, backward
 add_noise   = 1;   % 1 - yes, 0 - no
 
 dbc_val_zero = 1.0; 
-dbc_val_J    = -1.0;
+dbc_val_J    = 1.0;
 dbc_val      = [dbc_val_zero, dbc_val_J]; % velocity at boundaries (for Dirichlet B.C.s) ]
 u0(1,1)      = dbc_val_zero; % enforce B.C.s at initial time
 u0(end,1)    = dbc_val_J; % enforce B.C.s at initial time
@@ -75,3 +75,10 @@ surf(x,t,ut');
 %     pause(0.01);
 %     clf(fig);
 % end
+
+figure()
+y = (dt:dt:dt*(N+1));
+[X,Y] = meshgrid(x,y);
+contourf(X,Y,ut')
+colorbar;
+caxis([-0.0181 2.6675]);

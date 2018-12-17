@@ -1,7 +1,7 @@
 %     h_samples = zeros(rollouts,T+1,J+1); % trajectories of spatial points
 %     xi_samples = zeros(rollouts,T,J-1); % corresponding noise trajectories 
 
-function U_new = PI_control(h_samples, xi_samples, U, curly_M, M)
+function [U_new, avg_cost] = PI_control(h_samples, xi_samples, U, curly_M, M)
 
     global J N a mu sig T dt sigma h_d rollouts rho scale_factor range nu terminal_only 
     
@@ -14,6 +14,8 @@ function U_new = PI_control(h_samples, xi_samples, U, curly_M, M)
         end        
         J_h(r,1) = J_h(r,1) + scale_factor * (squeeze(h_samples(r,end,range)) - h_d(range,1))' * (squeeze(h_samples(r,end,range)) - h_d(range,1));
     end
+    
+%     avg
     
     zeta_1 = zeros(rollouts,1);   
     for r = 1:rollouts

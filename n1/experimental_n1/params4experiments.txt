@@ -1,0 +1,59 @@
+
+1.) Nagumo Suppression mpc
+
+terminal_only = 0; % Set 1 for considering only terminal state cost
+dt = 0.01;
+Tsim = 1.5; % in seconds
+Tsim_steps = round(Tsim/dt);
+Tf = 0.1; % in seconds
+T = round(Tf/dt); 
+a = 10; % axon length 
+J = 128; % number of spatial points
+z = a/J; % spatial discretization
+x = (0:z:a)';
+iters = 5; % number of PI iterations
+rollouts = 100; % number of rollouts for sampling 
+rho = 10000;
+sigma = 1/(sqrt(rho)); % standard deviation for Q-Wiener noise
+scale_factor = 1000;
+epsilon = 1; % thermal diffusivity of the rod
+range = round(0.7*J):round(0.99*J);
+mu = [0.2 0.3 0.4 0.5 0.6 0.7 0.8].*a; % mean location of actuator in space
+sig_val = (0.1*a) * ones(length(mu));
+sig = sig_val.^2; % standard deviation of actuation in space
+N = length(mu); % number of actuators
+h0 = 1./(1+exp(-(2-x)/sqrt(2)));
+
+h_d = zeros(size(x));
+% h_d(range,1) = 1; % force end of axon to reach potential faster
+h_d(range,1) = 0; % suppress axon potential at the end
+U = randn(T,N);
+
+
+2.) Nagumo Suppression open loop
+
+Tf = 2.5; % It takes around 5 seconds with axon length of 10 for potential to reach the other end
+dt = 0.01;
+T = round(Tf/dt); % Horizon length
+a = 10; % axon length 
+J = 128; % number of spatial points
+z = a/J; % spatial discretization
+x = (0:z:a)';
+iters = 100; % number of PI iterations
+rollouts = 50; % number of rollouts for sampling 
+rho = 10000;
+sigma = 1/(sqrt(rho)); % standard deviation for Q-Wiener noise
+scale_factor = 1000;
+epsilon = 1; % thermal diffusivity of the rod
+range = round(0.7*J):round(0.99*J);
+mu = [0.2 0.3 0.4 0.5 0.6 0.7 0.8].*a; % mean location of actuator in space
+sig_val = (0.1*a) * ones(length(mu));
+sig = sig_val.^2; % standard deviation of actuation in space
+N = length(mu); % number of actuators
+h0 = 1./(1+exp(-(2-x)/sqrt(2)));
+h_d = zeros(size(x));
+h_d(range,1) = 1; % force end of axon to reach potential faster
+% h_d(range,1) = 0; % suppress axon potential at the end
+U = randn(T,N);
+
+

@@ -13,13 +13,13 @@ a               = 2; % rod length
 J               = 128; % number of spatial points
 z               = a/J; % spatial discretization
 x               = (0:z:a)';
-iters           = 100; % number of PI iterations (Open Loop)
+iters           = 200; % number of PI iterations (Open Loop)
 rollouts        = 100; % number of rollouts for sampling 
-rho             = 500; % Path Integral temperature parameter, High rho => like max fn, Low rho => like averaging the samples
+rho             = 1000; % Path Integral temperature parameter, High rho => like max fn, Low rho => like averaging the samples
 sigma           = 1/(sqrt(rho)); % standard deviation for Q-Wiener noise
 scale_factor    = 100; % For scaling certain terms in cost function to increase relative importance
 nu              = 0.1; % viscosity of medium
-terminal_only   = 1; % Set 1 for considering only terminal state cost
+terminal_only   = 0; % Set 1 for considering only terminal state cost
 load_U          = 0; % Set to 1 if you want to load previous optimized control sequence
 
 %------- Set initial and desired velocity profiles ------------------------
@@ -50,7 +50,7 @@ h0(end,1)    = dbc_val_J; % enforce B.C.s at initial time
 %--------------------- Setup actuators ------------------------------------
 
 mu           = [0.2 0.5 0.8] .* a; 
-sig_val      = (0.05*a) * ones(length(mu));
+sig_val      = (0.1*a) * ones(length(mu));
 sig          = sig_val.^2; % standard deviation of actuation in space
 N            = length(mu); % number of actuators
 
@@ -119,7 +119,8 @@ plot(cost)
 title('cost vs iterations');
 
 figure()
-plot(U_new)
+plot(U_new);
+title('control sequences');
 
 %%
 
@@ -132,11 +133,23 @@ legend('actual','desired');
 title('starting profile');
 
 figure()
+ylim_lower = -0.0;
 plot(x,h_traj(end,:));
 hold on 
 plot(x, h_d, '-r', 'LineWidth',5);
-hold off
-legend('actual','desired');
+hold on
+plot(0.2*a, ylim_lower,'-go','MarkerSize',15);
+hold on;
+line([0.2*a - 0.1*a, 0.2*a + 0.1*a], [ylim_lower, ylim_lower], 'Color','red', 'Marker', 'o');
+hold on;
+plot(0.5*a, ylim_lower,'-go','MarkerSize',15);
+hold on;
+line([0.5*a - 0.1*a, 0.5*a + 0.1*a], [ylim_lower, ylim_lower], 'Color','red', 'Marker', 'o');
+hold on;
+plot(0.8*a, ylim_lower,'-go','MarkerSize',15);
+hold on;
+line([0.8*a - 0.1*a, 0.8*a + 0.1*a], [ylim_lower, ylim_lower], 'Color','red', 'Marker', 'o');
+legend('actual end profile','desired profile', 'actuator locations', 'actuator effect (1-sigma)');
 title('end profile');
 
 figure()
@@ -165,16 +178,11 @@ if animate
         ylim([ylim1 ylim2])
         set(gcf, 'Units', 'Normalized', 'OuterPosition', [0 0 1 1]);
         set(gcf, 'Toolbar', 'none', 'Menu', 'none');
-        pause(0.01);
+        pause(0.005);
         clf(fig);
     end
 end
 
-% 
-%  
-% figure()
-% plot(U_new)
-% 
 % mean_h = mean(h_traj, 1);
 % var_h = var(h_traj,1); 
 % figure()
