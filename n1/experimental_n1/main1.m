@@ -2,56 +2,54 @@ clc
 clear 
 close all
 
-global J;
-global N;
-global a;
-global mu;
-global sig;
-global T;
-global dt;
-global sigma;
-global h_d;
-global rollouts;
-global rho;
-global scale_factor;
-global range;
-global epsilon;
+global J N a mu sig T dt sigma h_d rollouts rho scale_factor range epsilon terminal_only
 
-% Set parameters:
-Tf = 2.5; % It takes around 5 seconds with axon length of 10 for potential to reach the other end
-dt = 0.01;
-T = round(Tf/dt); % Horizon length
-a = 10; % axon length 
-J = 128; % number of spatial points
-z = a/J; % spatial discretization
-x = (0:z:a)';
-iters = 100; % number of PI iterations
-rollouts = 50; % number of rollouts for sampling 
+monte_carlo_iters   = 128;
+terminal_only       = 0; % Set 1 for considering only terminal state cost 
 
-rho = 1000;
-sigma = 1/(sqrt(rho)); % standard deviation for Q-Wiener noise
-scale_factor = 1000;
-epsilon = 1; % thermal diffusivity of the rod
+%-------------------------------- Set parameters --------------------------
+Tf              = 1.5; % It takes around 5 seconds with axon length of 10 for potential to reach the other end
+dt              = 0.01;
+T               = round(Tf/dt); % Horizon length
 
-range = round(0.7*J):round(0.99*J);
+a               = 10; % axon length 
+J               = 128; % number of spatial points
+z               = a/J; % spatial discretization
+x               = (0:z:a)';
+epsilon         = 1; % thermal diffusivity of the rod
 
-mu = [0.2 0.3 0.4 0.5 0.6 0.7 0.8].*a; % mean location of actuator in space
-%mu = [0.2 0.4 0.6 0.8]; % mean location of actuator in space
-% mu = [0.7 0.5 0.9].*a; % mean location of actuator in space
-sig_val = (0.1*a) * ones(length(mu));
-sig = sig_val.^2; % standard deviation of actuation in space
+iters           = 100; % number of PI iterations
+rollouts        = 100; % number of rollouts for sampling 
+rho             = 10000;
+sigma           = 1/(sqrt(rho)); % standard deviation for Q-Wiener noise
+scale_factor    = 1000;
+%--------------------------------------------------------------------------
 
-N = length(mu); % number of actuators
+%-------------------------------- Set actuators --------------------------
+range           = round(0.7*J):round(0.99*J);
+mu              = [0.2 0.3 0.4 0.5 0.6 0.7 0.8].*a; % mean location of actuator in space
+sig_val         = (0.1*a) * ones(length(mu));
+sig             = sig_val.^2; % standard deviation of actuation in space
+N               = length(mu); % number of actuators
+%--------------------------------------------------------------------------
 
-h0 = 1./(1+exp(-(2-x)/sqrt(2)));
+%-----------------------Choose experiment type-----------------------------
+h0 = 1./(1+exp(-(2-x)/sqrt(2))); % set initial condition
+h_d = zeros(size(x)); 
 
-h_d = zeros(size(x));
-h_d(range,1) = 1; % force end of axon to reach potential faster
-% h_d(range,1) = 0; % suppress axon potential at the end
+% Set targets:
+% h_d(range,1) = 1; % force end of axon to reach potential faster
+% exp_type = "accel/";
+% fprintf('Task: Accelerating voltage potential through an axon')
+
+h_d(range,1) = 0; % suppress axon potential at the end
+exp_type = "suppress/";
+fprintf('\nTask: Suprressing voltage at end of an axon\n')
+%--------------------------------------------------------------------------
 
 % Initialize control sequences:
-U = randn(T,N);
-% U = zeros(T,N);
+% U = randn(T,N);
+U = zeros(T,N);
 
 % First compute matricies curly-M, M and the curly-v-tilde vector offline:
 curly_M = compute_curly_M1();
@@ -77,8 +75,8 @@ for iter = 1:iters
     % Cost computation and control update:
     U_new = PI_control1(h_samples, xi_samples, U, curly_M, M);
 
-    %% Noise-free rollout and noise-free cost computation:
-    [h_traj, xi_traj] = generate_rollouts1(h0, U_new, curly_v_tilde, 1, f);
+    %% Test rollout and compute cost:
+    [h_traj, xi_traj] = generate_rollouts1(h0, U_new, curly_v_tilde, 0, f);
 
     for t = 1:T
         cost(iter,1) = cost(iter,1) + scale_factor * (h_traj(t,range)' - h_d(range,1))' * (h_traj(t,range)' - h_d(range,1));

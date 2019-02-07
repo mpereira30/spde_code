@@ -1,20 +1,7 @@
 
 function U_new = PI_control1(h_samples, xi_samples, U, curly_M, M)
 
-global J;
-global N;
-global a;
-global mu;
-global sig;
-global T;
-global dt;
-global sigma;
-global h_d;
-global rollouts;
-global rho;
-global scale_factor;
-global range; 
-global terminal_only;
+global J N a mu sig T dt sigma h_d rollouts rho scale_factor range epsilon terminal_only gamma
 
     J_h = zeros(rollouts,1);
     for r = 1:rollouts
@@ -70,7 +57,8 @@ global terminal_only;
         end
         
         u_update = u_update / rollouts;
-        U_new(t,:) = U(t,:) + ( 1 / (dt*sqrt(rho)) ) .* (M \ u_update')';
+        U_new(t,:) = U(t,:) + gamma * ( 1 / (dt*sqrt(rho)) ) .* (M \ u_update')';
+
     end
     
 end
