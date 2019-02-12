@@ -2,7 +2,11 @@ clc
 clear 
 close all
 
-global J N a mu sig T dt sigma h_d rollouts rho scale_factor range nu terminal_only 
+global J N a mu sig T dt sigma h_d rollouts rho scale_factor range nu terminal_only gamma
+
+monte_carlo_iters   = 128;
+gamma               = 1.0; % step size
+fprintf('\nUsing step size of %1.3f\n', gamma);
 
 %-------------- Setup simulation parameters -------------------------------
 
@@ -13,7 +17,7 @@ a               = 2; % rod length
 J               = 128; % number of spatial points
 z               = a/J; % spatial discretization
 x               = (0:z:a)';
-iters           = 200; % number of PI iterations (Open Loop)
+iters           = 100; % number of PI iterations (Open Loop)
 rollouts        = 100; % number of rollouts for sampling 
 rho             = 1000; % Path Integral temperature parameter, High rho => like max fn, Low rho => like averaging the samples
 sigma           = 1/(sqrt(rho)); % standard deviation for Q-Wiener noise
@@ -37,7 +41,6 @@ h_d(range2,1)   = desired_vel * 0.5;
 h_d(range3,1)   = +desired_vel;
 
 range           = [range1, range2, range3];
-% range           = [range1, range2];
 
 %----------- Set the Dirichlet B.C. values at each end --------------------
 
@@ -49,7 +52,7 @@ h0(end,1)    = dbc_val_J; % enforce B.C.s at initial time
 
 %--------------------- Setup actuators ------------------------------------
 
-mu           = [0.2 0.5 0.8] .* a; 
+mu           = [0.2 0.3 0.5 0.7 0.8] .* a; 
 sig_val      = (0.1*a) * ones(length(mu));
 sig          = sig_val.^2; % standard deviation of actuation in space
 N            = length(mu); % number of actuators
@@ -61,7 +64,7 @@ if load_U == 1
     load('optimal_controls.mat')
     U           = U_new;
 else
-    U           = randn(T,N);
+    U           = zeros(T,N);
 end
 curly_M         = compute_curly_M();
 M               = compute_capital_M();
@@ -93,13 +96,10 @@ for iter = 1:iters
     % Cost computation and control update:
     U_new = PI_control(h_samples, xi_samples, U, curly_M, M);
 
-    %% Noise-free rollout and noise-free cost computation:
-    noise_free = 1;
+    %% Test rollout and cost computation:
+    noise_free = 0;
     [h_traj, xi_traj] = generate_rollouts(h0, U_new, curly_v_tilde, noise_free, J_, nu_, a_, T_, dbc_val, dt_, sigma_);
-    
-    % With disturbances in the actual dynamics:
-%     [h_traj, xi_traj] = generate_rollouts(h0, U_new, curly_v_tilde, 0);    
-    
+   
     if (terminal_only == 0) % consider running cost as well
         for t = 1:T
             cost(iter,1) = cost(iter,1) + scale_factor * (h_traj(t,range)' - h_d(range,1))' * (h_traj(t,range)' - h_d(range,1));
@@ -112,76 +112,99 @@ for iter = 1:iters
     U = U_new;
 end 
 
-save('optimal_controls.mat', 'U_new');
+% Perform the Monte-Carlo iterations:
+Uoptimal        = U_new;
+mc_cost         = zeros(monte_carlo_iters,1);
+allEndProfiles  = zeros(monte_carlo_iters, length(x));
 
-figure()
-plot(cost)
-title('cost vs iterations');
+for mc_iter = 1: monte_carlo_iters
 
-figure()
-plot(U_new);
-title('control sequences');
-
-%%
-
-figure()
-plot(x,h_traj(1,:));
-hold on 
-plot(x, h_d, '-r', 'LineWidth',5);
-hold off
-legend('actual','desired');
-title('starting profile');
-
-figure()
-ylim_lower = -0.0;
-plot(x,h_traj(end,:));
-hold on 
-plot(x, h_d, '-r', 'LineWidth',5);
-hold on
-plot(0.2*a, ylim_lower,'-go','MarkerSize',15);
-hold on;
-line([0.2*a - 0.1*a, 0.2*a + 0.1*a], [ylim_lower, ylim_lower], 'Color','red', 'Marker', 'o');
-hold on;
-plot(0.5*a, ylim_lower,'-go','MarkerSize',15);
-hold on;
-line([0.5*a - 0.1*a, 0.5*a + 0.1*a], [ylim_lower, ylim_lower], 'Color','red', 'Marker', 'o');
-hold on;
-plot(0.8*a, ylim_lower,'-go','MarkerSize',15);
-hold on;
-line([0.8*a - 0.1*a, 0.8*a + 0.1*a], [ylim_lower, ylim_lower], 'Color','red', 'Marker', 'o');
-legend('actual end profile','desired profile', 'actuator locations', 'actuator effect (1-sigma)');
-title('end profile');
-
-figure()
-s = surf(x,(1:1:T+1),h_traj);
-s.EdgeAlpha = 0.25;
-xlabel('space')
-ylabel('time')
-zlabel('velocity')
-
-ylim1 = min(min(h_traj));
-ylim2 = max(max(h_traj));
-
-fprintf("\n");
-animate = input('Would you like to watch an animation of the field? Type 1: Yes or 0: No and press Enter !');
-
-if animate
-    fig = figure();
-    for i = 1:T+1
-        i
-        plot(x, h_traj(i,:));
-        hold on 
-        plot(x, h_d, '-r');
-        hold off
-        legend('actual','desired');
-        ylim manual
-        ylim([ylim1 ylim2])
-        set(gcf, 'Units', 'Normalized', 'OuterPosition', [0 0 1 1]);
-        set(gcf, 'Toolbar', 'none', 'Menu', 'none');
-        pause(0.005);
-        clf(fig);
-    end
+    noise_free = 0;
+    [h_traj, xi_traj] = generate_rollouts(h0, Uoptimal, curly_v_tilde, noise_free, J_, nu_, a_, T_, dbc_val, dt_, sigma_);
+   
+    if (terminal_only == 0) % consider running cost as well
+        for t = 1:T
+            mc_cost(mc_iter,1) = mc_cost(mc_iter,1) + scale_factor * (h_traj(t,range)' - h_d(range,1))' * (h_traj(t,range)' - h_d(range,1));
+        end
+    end      
+    mc_cost(mc_iter,1) = mc_cost(mc_iter,1) + scale_factor * (h_traj(T+1,range)' - h_d(range,1))' * (h_traj(T+1,range)' - h_d(range,1));
+    
+    fprintf('MC iteration: %d, total cost = %f\n', mc_iter, mc_cost(mc_iter,1));
+    allEndProfiles(mc_iter,:) = h_traj(end,:);
 end
+
+save('openloop_mc_profiles.mat', 'allEndProfiles');
+
+% save('optimal_controls.mat', 'U_new');
+% 
+% figure()
+% plot(cost)
+% title('cost vs iterations');
+% 
+% figure()
+% plot(U_new);
+% title('control sequences');
+% 
+% %%
+% 
+% figure()
+% plot(x,h_traj(1,:));
+% hold on 
+% plot(x, h_d, '-r', 'LineWidth',5);
+% hold off
+% legend('actual','desired');
+% title('starting profile');
+% 
+% figure()
+% ylim_lower = -0.0;
+% plot(x,h_traj(end,:));
+% hold on 
+% plot(x, h_d, '-r', 'LineWidth',5);
+% hold on
+% plot(0.2*a, ylim_lower,'-go','MarkerSize',15);
+% hold on;
+% line([0.2*a - 0.1*a, 0.2*a + 0.1*a], [ylim_lower, ylim_lower], 'Color','red', 'Marker', 'o');
+% hold on;
+% plot(0.5*a, ylim_lower,'-go','MarkerSize',15);
+% hold on;
+% line([0.5*a - 0.1*a, 0.5*a + 0.1*a], [ylim_lower, ylim_lower], 'Color','red', 'Marker', 'o');
+% hold on;
+% plot(0.8*a, ylim_lower,'-go','MarkerSize',15);
+% hold on;
+% line([0.8*a - 0.1*a, 0.8*a + 0.1*a], [ylim_lower, ylim_lower], 'Color','red', 'Marker', 'o');
+% legend('actual end profile','desired profile', 'actuator locations', 'actuator effect (1-sigma)');
+% title('end profile');
+% 
+% figure()
+% s = surf(x,(1:1:T+1),h_traj);
+% s.EdgeAlpha = 0.25;
+% xlabel('space')
+% ylabel('time')
+% zlabel('velocity')
+% 
+% ylim1 = min(min(h_traj));
+% ylim2 = max(max(h_traj));
+% 
+% fprintf("\n");
+% animate = input('Would you like to watch an animation of the field? Type 1: Yes or 0: No and press Enter !');
+% 
+% if animate
+%     fig = figure();
+%     for i = 1:T+1
+%         i
+%         plot(x, h_traj(i,:));
+%         hold on 
+%         plot(x, h_d, '-r');
+%         hold off
+%         legend('actual','desired');
+%         ylim manual
+%         ylim([ylim1 ylim2])
+%         set(gcf, 'Units', 'Normalized', 'OuterPosition', [0 0 1 1]);
+%         set(gcf, 'Toolbar', 'none', 'Menu', 'none');
+%         pause(0.005);
+%         clf(fig);
+%     end
+% end
 
 % mean_h = mean(h_traj, 1);
 % var_h = var(h_traj,1); 

@@ -4,14 +4,22 @@ close all
 
 global J N a mu sig T dt sigma h_d rollouts rho scale_factor range epsilon terminal_only gamma
 
-monte_carlo_iters   = 128;
+monte_carlo_iters   = 1;
 terminal_only       = 0; % Set 1 for considering only terminal state cost
 gamma               = 0.1; % step size
 fprintf('\nUsing step size of %1.3f\n', gamma);
+policy_type         = "mpc/";
+exp_type            = "accel/";
 
 %-------------------------------- Set parameters --------------------------
 dt              = 0.01;
-Tsim            = 5.0; % Total simulation time in seconds
+if exp_type == "accel/" 
+    Tsim        = 1.5; 
+    fprintf('\nTime Horizon: %1.3f\n', Tsim);
+elseif exp_type == "suppress/"
+    Tsim        = 5.0;
+    fprintf('\nTime Horizon: %1.3f\n', Tsim);
+end
 Tsim_steps      = round(Tsim/dt); % timesteps
 Tf              = 0.1; % % MPC final time horizon 
 T               = round(Tf/dt); % mpc timesteps
@@ -40,13 +48,13 @@ common_h0 = 1./(1+exp(-(2-x)/sqrt(2))); % set initial condition
 h_d = zeros(size(x)); 
 
 % Set targets:
-% h_d(range,1) = 1; % force end of axon to reach potential faster
-% exp_type = "accel/";
-% fprintf('Task: Accelerating voltage potential through an axon')
-
-h_d(range,1) = 0; % suppress axon potential at the end
-exp_type = "suppress/";
-fprintf('\nTask: Suprressing voltage at end of an axon\n')
+if exp_type == "accel/" 
+    h_d(range,1) = 1; % force end of axon to reach potential faster
+    fprintf('Task: Accelerating voltage potential through an axon')
+elseif exp_type == "suppress/"
+    h_d(range,1) = 0; % suppress axon potential at the end
+    fprintf('\nTask: Suprressing voltage at end of an axon\n')
+end
 %--------------------------------------------------------------------------
 
 %---------------------------Precompute matrices ---------------------------
@@ -106,13 +114,23 @@ for mc_iter = 1:monte_carlo_iters
         fprintf('cost: %f\n', cost(cur_step));
     end
     
-    filepath = "monte_carlo_data/mpc/"+exp_type+num2str(mc_iter)+".mat";
-    fprintf('Iteration complete! Saving data at: %s\n', filepath);   
-    endprofile = h_actual(end,:);
-    costprofile = cost;
-    save(filepath, 'endprofile', 'costprofile')
+%     filepath = "monte_carlo_data/mpc/"+exp_type+num2str(mc_iter)+".mat";
+%     fprintf('Iteration complete! Saving data at: %s\n', filepath);   
+%     endprofile = h_actual(end,:);
+%     costprofile = cost;
+%     save(filepath, 'endprofile', 'costprofile')
 
 end
+
+% For plotting contourf plots:
+if exp_type == "accel/"
+    h_accel = h_actual;
+    save('accel_data.mat', 'h_accel');
+elseif exp_type == "suppress/"
+    h_suppress = h_actual;
+    save('suppress_data.mat', 'h_suppress');
+end
+
 
 % figure()
 % plot(cost)

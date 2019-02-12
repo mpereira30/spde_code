@@ -29,7 +29,7 @@ z               = a/J; % spatial discretization
 x               = (0:z:a)';
 epsilon         = 1; % thermal diffusivity of the rod
 
-iters           = 100; % number of PI iterations
+iters           = 200; % number of PI iterations
 rollouts        = 100; % number of rollouts for sampling 
 rho             = 10000;
 sigma           = 1/(sqrt(rho)); % standard deviation for Q-Wiener noise
@@ -64,51 +64,72 @@ M = compute_capital_M();
 curly_v_tilde = compute_curly_v_tilde1();
 f = @(h) h.*(1-h).*(h+0.5);
 
-for mc_iter = 1:monte_carlo_iters
+cost = zeros(iters,1);   
+h0 = common_h0; % Reset the initial profile every monte-carlo iteration
 
-    fprintf('\nMonte Carlo Iteration: %d\n', mc_iter); 
-    cost = zeros(iters,1);   
-    h0 = common_h0; % Reset the initial profile every monte-carlo iteration
+U = zeros(T,N); % Initialize control sequence
 
-    U = zeros(T,N); % Initialize control sequence
-    
-    tic
-    for iter = 1:iters
+for iter = 1:iters
 
-        % Generate rollouts and noise samples:
-        h_samples = zeros(rollouts,T+1,J+1); % trajectories of spatial points
-        xi_samples = zeros(rollouts,T,J-1); % corresponding noise trajectories 
+    % Generate rollouts and noise samples:
+    h_samples = zeros(rollouts,T+1,J+1); % trajectories of spatial points
+    xi_samples = zeros(rollouts,T,J-1); % corresponding noise trajectories 
 
-        for r = 1:rollouts
-            [h_traj, xi_traj] = generate_rollouts1(h0, U, curly_v_tilde, 0, f);
-            h_samples(r,:,:) = h_traj;
-            xi_samples(r,:,:) = xi_traj;
-        end
-
-        % Cost computation and control update:
-        U_new = PI_control1(h_samples, xi_samples, U, curly_M, M);
-
-        %% Test rollout and compute cost:
-        [h_traj, xi_traj] = generate_rollouts1(h0, U_new, curly_v_tilde, 0, f);
-
-        for t = 1:T
-            cost(iter,1) = cost(iter,1) + scale_factor * (h_traj(t,range)' - h_d(range,1))' * (h_traj(t,range)' - h_d(range,1));
-        end
-        cost(iter,1) = cost(iter,1) + scale_factor * (h_traj(T+1,range)' - h_d(range,1))' * (h_traj(T+1,range)' - h_d(range,1));
-
-        fprintf('Iteration number: %d, Cost: %f \n', iter, cost(iter,1));
-
-        U = U_new;
+    for r = 1:rollouts
+        [h_traj, xi_traj] = generate_rollouts1(h0, U, curly_v_tilde, 0, f);
+        h_samples(r,:,:) = h_traj;
+        xi_samples(r,:,:) = xi_traj;
     end
-    toc
-    
-    filepath = "monte_carlo_data/" + policy_type + exp_type + num2str(mc_iter)+".mat";
-    fprintf('MC-Iteration complete! Saving data at: %s\n', filepath);   
-    endprofile = h_traj(end,:);
-    costprofile = cost;
-    save(filepath, 'endprofile', 'costprofile')    
-    
+
+    % Cost computation and control update:
+    U_new = PI_control1(h_samples, xi_samples, U, curly_M, M);
+
+    %% Test rollout and compute cost:
+    [h_traj, xi_traj] = generate_rollouts1(h0, U_new, curly_v_tilde, 0, f);
+
+    for t = 1:T
+        cost(iter,1) = cost(iter,1) + scale_factor * (h_traj(t,range)' - h_d(range,1))' * (h_traj(t,range)' - h_d(range,1));
+    end
+    cost(iter,1) = cost(iter,1) + scale_factor * (h_traj(T+1,range)' - h_d(range,1))' * (h_traj(T+1,range)' - h_d(range,1));
+
+    fprintf('Iteration number: %d, Cost: %f \n', iter, cost(iter,1));
+
+    U = U_new;
 end
+
+% Perform the Monte-Carlo iterations:
+Uoptimal        = U_new;
+mc_cost         = zeros(monte_carlo_iters,1);
+allEndProfiles  = zeros(monte_carlo_iters, length(x));
+
+for mc_iter = 1: monte_carlo_iters
+
+    h0 = common_h0; % Reset the initial profile every monte-carlo iteration
+    
+    [h_traj, xi_traj] = generate_rollouts1(h0, Uoptimal, curly_v_tilde, 0, f);
+    for t = 1:T
+        mc_cost(mc_iter,1) = mc_cost(mc_iter,1) + scale_factor * (h_traj(t,range)' - h_d(range,1))' * (h_traj(t,range)' - h_d(range,1));
+    end
+    mc_cost(mc_iter,1) = mc_cost(mc_iter,1) + scale_factor * (h_traj(T+1,range)' - h_d(range,1))' * (h_traj(T+1,range)' - h_d(range,1));
+    
+    fprintf('MC iteration: %d, total cost = %f\n', mc_iter, mc_cost(mc_iter,1));
+    allEndProfiles(mc_iter,:) = h_traj(end,:);
+end
+
+if exp_type == "accel/" 
+    allEndProfilesAccel = allEndProfiles;
+    save('accel_profiles.mat', 'allEndProfilesAccel');
+elseif exp_type == "suppress/"
+    allEndProfilesSuppress = allEndProfiles;
+    save('suppress_profiles.mat', 'allEndProfilesSuppress');
+end
+
+%     filepath = "monte_carlo_data/" + policy_type + exp_type + num2str(mc_iter)+".mat";
+%     fprintf('MC-Iteration complete! Saving data at: %s\n', filepath);   
+%     endprofile = h_traj(end,:);
+%     costprofile = cost;
+%     save(filepath, 'endprofile', 'costprofile')    
+
 
 % figure()
 % plot(cost)

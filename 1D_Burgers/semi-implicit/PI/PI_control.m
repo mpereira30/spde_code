@@ -3,7 +3,7 @@
 
 function [U_new, avg_cost] = PI_control(h_samples, xi_samples, U, curly_M, M)
 
-    global J N a mu sig T dt sigma h_d rollouts rho scale_factor range nu terminal_only 
+    global J N a mu sig T dt sigma h_d rollouts rho scale_factor range nu terminal_only gamma
     
     J_h = zeros(rollouts,1);
     for r = 1:rollouts
@@ -61,7 +61,7 @@ function [U_new, avg_cost] = PI_control(h_samples, xi_samples, U, curly_M, M)
         end
         
         u_update = u_update/rollouts;         
-        U_new(t,:) = U(t,:) + ( 1 / (dt*sqrt(rho)) ) .* (M \ u_update')';
+        U_new(t,:) = U(t,:) + gamma * ( 1 / (dt*sqrt(rho)) ) .* (M \ u_update')';
     end
     
 end
